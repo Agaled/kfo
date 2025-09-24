@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medlemsansökan - Kajakklubben</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h1>Ansök om medlemskap</h1>
+    <p>Fyll i formuläret nedan för att ansöka om medlemskap i klubben.</p>
+
+    <form id="applyForm">
+        <label for="name">Namn *</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="email">E-post *</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="phone">Telefon</label>
+        <input type="tel" id="phone" name="phone">
+
+        <label for="address">Adress</label>
+        <input type="text" id="address" name="address">
+
+        <label for="swimming">Är du simkunnig? *</label>
+        <select id="swimming" name="swimming" required>
+            <option value="">Välj...</option>
+            <option value="Ja">Ja</option>
+            <option value="Nej">Nej</option>
+        </select>
+
+        <label for="experience">Kajakerfarenhet *</label>
+        <select id="experience" name="experience" required>
+            <option value="">Välj...</option>
+            <option value="Grundkurs i havskajak">Grundkurs i havskajak</option>
+            <option value="Annat motsvarande">Annat motsvarande</option>
+            <option value="Ingen">Ingen</option>
+        </select>
+
+        <label for="rescue">Kan du grundläggande räddningstekniker? *</label>
+        <select id="rescue" name="rescue" required>
+            <option value="">Välj...</option>
+            <option value="Ja">Ja</option>
+            <option value="Nej">Nej</option>
+        </select>
+
+        <label for="message">Övrigt</label>
+        <textarea id="message" name="message"></textarea>
+
+        <button type="submit">Skicka ansökan</button>
+    </form>
+
+</div>
+
+<script>
+    const form = document.getElementById("applyForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = {
+        name: form.name.value.trim(),
+        email: form.email.value.trim(),
+        phone: form.phone.value.trim(),
+        address: form.address.value.trim(),
+        swimming: form.swimming.value,
+        experience: form.experience.value,
+        rescue: form.rescue.value,
+        message: form.message.value.trim()
+      };
+
+      try {
+        const res = await fetch("/api/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (res.ok) {
+          alert("Tack! Din ansökan är inskickad. (ID: " + json.id + ")");
+          form.reset();
+        } else {
+          alert(json.error || "Något gick fel.");
+        }
+      } catch (err) {
+        alert("Kunde inte nå servern.");
+        console.error(err);
+      }
+    });
+</script>
+
+
+</body>
+</html>

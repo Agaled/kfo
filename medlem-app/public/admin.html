@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin – Ansökningar</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* Admin-förbättringar – ifall din style.css inte redan har dessa */
+    .toolbar {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 10px 0 20px;
+    }
+    .toolbar .left, .toolbar .right { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input[type="search"] { padding: 10px; border: 1px solid #ccd6e0; border-radius: 6px; min-width: 220px; }
+    select { padding: 8px; border: 1px solid #ccd6e0; border-radius: 6px; }
+    .table-wrap { overflow: auto; border: 1px solid #eee; border-radius: 8px; }
+    .table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    .table thead th { position: sticky; top: 0; background: #fff; z-index: 1; color: #003f91; border-bottom: 2px solid #e6eef8; cursor: pointer; user-select: none; padding: 12px; text-align: left; }
+    .table tbody td { border-bottom: 1px solid #f0f4f8; padding: 10px 12px; vertical-align: top; }
+    .table tbody tr:hover { background: #f6f9ff; }
+    .nowrap { white-space: nowrap; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; background: #e9f2ff; color: #003f91; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Admin – Ansökningar</h1>
+
+  <!-- Login -->
+  <div id="login">
+    <label for="user">Användarnamn</label>
+    <input id="user" type="text" required />
+    <label for="pass">Lösenord</label>
+    <input id="pass" type="password" required />
+    <button id="btnLogin">Logga in</button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dash" style="display:none">
+    <div class="toolbar">
+      <div class="left">
+        <button id="btnLoad">Ladda ansökningar</button>
+        <input id="search" type="search" placeholder="Sök namn, e-post, telefon..." />
+        <select id="statusFilter" title="Filtrera status">
+          <option value="">Alla statusar</option>
+          <option>Ny</option>
+          <option>Under behandling</option>
+          <option>Godkänd</option>
+          <option>Avslagen</option>
+        </select>
+      </div>
+      <div class="right">
+        <span class="badge" id="countBadge">0 träffar</span>
+        <button id="btnClear">Rensa filter</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tbl" class="table">
+        <thead>
+        <tr>
+          <th data-key="id">ID</th>
+          <th data-key="name">Namn</th>
+          <th data-key="email">E-post</th>
+          <th data-key="phone">Telefon</th>
+          <th data-key="address">Adress</th>
+          <th data-key="swimming" class="nowrap">Simk.</th>
+          <th data-key="experience">Erfarenhet</th>
+          <th data-key="rescue">Räddning</th>
+          <th data-key="status" class="nowrap">Status</th>
+          <th data-key="created_at" class="nowrap">Skickad</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <p style="margin-top:12px;color:#666;font-size:.9rem">
+      Tips: Klicka på rubrikerna för att sortera. Skriv i sökfältet för att filtrera. Använd statusfiltret för att visa en viss status.
+    </p>
+  </div>
+</div>
+
+<script>
+  let token = localStorage.getItem("admintoken") || null;
+  let allRows = [];
+  let sortKey = "created_at";
+  let sortDir = "desc";
+  const STATUSES = ["Ny","Under behandling","Godkänd","Avslagen"];
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+  const tbody = $("#tbl tbody");
+  const search = $("#search");
+  const statusFilter = $("#statusFilter");
+  const countBadge = $("#countBadge");
+
+  // Visa rätt vy om token redan finns
+  if (token) {
+    $("#login").style.display = "none";
+    $("#dash").style.display = "block";
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function fmtDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return esc(iso);
+    return d.toLocaleString("sv-SE");
+  }
+
+  function compare(a, b, key) {
+    const va = a[key], vb = b[key];
+    if (key === "id") return Number(va) - Number(vb);
+    if (key === "created_at") return new Date(va) - new Date(vb);
+    return String(va ?? "").localeCompare(String(vb ?? ""), "sv", { sensitivity: "base" });
+  }
+
+  function optionList(current) {
+    return STATUSES.map(s => `<option ${s === current ? "selected":""}>${s}</option>`).join("");
+  }
+
+  function render() {
+    // 1) textfilter
+    const q = (search.value || "").toLowerCase();
+    let rows = allRows.filter(r => {
+      if (!q) return true;
+      return (r.name || "").toLowerCase().includes(q)
+          || (r.email || "").toLowerCase().includes(q)
+          || (r.phone || "").toLowerCase().includes(q)
+          || (r.experience || "").toLowerCase().includes(q)
+          || (r.message || "").toLowerCase().includes(q);
+    });
+
+    // 2) statusfilter
+    const sf = statusFilter.value;
+    if (sf) rows = rows.filter(r => (r.status || "Ny") === sf);
+
+    // 3) sortering
+    rows.sort((a, b) => compare(a, b, sortKey));
+    if (sortDir === "desc") rows.reverse();
+
+    // 4) render
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      const st = r.status || "Ny";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="nowrap">${r.id}</td>
+        <td>${esc(r.name)}</td>
+        <td><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+        <td>${esc(r.phone || "")}</td>
+        <td>${esc(r.address || "")}</td>
+        <td class="nowrap">${esc(r.swimming)}</td>
+        <td>${esc(r.experience)}</td>
+        <td class="nowrap">${esc(r.rescue)}</td>
+        <td class="nowrap">
+          <select class="statusSel" data-id="${r.id}">
+            ${optionList(st)}
+          </select>
+        </td>
+        <td class="nowrap">${fmtDate(r.created_at)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    countBadge.textContent = `${rows.length} träffar`;
+  }
+
+  // --- Login ---
+  $("#btnLogin")?.addEventListener("click", async () => {
+    const username = $("#user").value.trim();
+    const password = $("#pass").value;
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ username, password })
+    });
+    const json = await res.json();
+    if (res.ok) {
+      token = json.token;
+      localStorage.setItem("admintoken", token);
+      $("#login").style.display = "none";
+      $("#dash").style.display = "block";
+      $("#btnLoad").click();
+    } else {
+      alert(json.error || "Fel inloggning.");
+    }
+  });
+
+  // --- Ladda data ---
+  $("#btnLoad")?.addEventListener("click", async () => {
+    if (!token) { alert("Du måste logga in."); return; }
+    const res = await fetch("/api/applications", {
+      headers: { "Authorization": "Bearer " + token }
+    });
+    allRows = await res.json();
+    render();
+  });
+
+  // --- Händelser ---
+  search?.addEventListener("input", render);
+  statusFilter?.addEventListener("change", render);
+  $("#btnClear")?.addEventListener("click", () => { search.value = ""; statusFilter.value = ""; render(); });
+
+  $$("th[data-key]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.getAttribute("data-key");
+      if (sortKey === key) {
+        sortDir = (sortDir === "asc") ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = (key === "created_at" || key === "id") ? "desc" : "asc";
+      }
+      render();
+    });
+  });
+
+  // --- Uppdatera status (inline) ---
+  tbody.addEventListener("change", async (e) => {
+    const el = e.target;
+    if (!el.classList.contains("statusSel")) return;
+
+    const id = Number(el.getAttribute("data-id"));
+    const status = String(el.value).trim();
+
+    if (!Number.isInteger(id) || id <= 0) {
+      alert("Ogiltigt ID för raden.");
+      return;
+    }
+    if (!token) {
+      alert("Du måste logga in.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/applications/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ status })
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.warn("PATCH fail:", res.status, json);
+        alert(json.error || "Kunde inte uppdatera status.");
+        // Återställ dropdown till tidigare värde
+        const row = allRows.find(r => Number(r.id) === id);
+        if (row) el.value = row.status || "Ny";
+        return;
+      }
+
+      // Uppdatera lokala datan så filter/sortering stämmer direkt
+      const row = allRows.find(r => Number(r.id) === id);
+      if (row) row.status = status;
+
+    } catch (err) {
+      console.error("PATCH error:", err);
+      alert("Nätverksfel – kunde inte uppdatera status.");
+      const row = allRows.find(r => Number(r.id) === id);
+      if (row) el.value = row.status || "Ny";
+    }
+  });
+</script>
+</body>
+</html>
