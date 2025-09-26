@@ -13,7 +13,7 @@ const PORT = 3000; // kör lokalt på port 3000
 
 // --- Middleware ---
 app.use(cors());
-app.options("*", cors());                  // preflight för PATCH m.m.
+//app.options("*", cors());                  // preflight för PATCH m.m.
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 

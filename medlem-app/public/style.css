@@ -169,3 +169,9 @@ input[type="search"] {
   background: #e9f2ff;
   color: #003f91;
 }
+
+
+.admin-cta { text-align: right; margin-bottom: 12px; }
+.btn { display:inline-block; font-weight:600; padding:10px 14px; border-radius:6px; text-decoration:none; }
+.btn-outline { border:1px solid #003f91; color:#003f91; background:transparent; transition:all .2s; }
+.btn-outline:hover { background:#003f91; color:#fff; }

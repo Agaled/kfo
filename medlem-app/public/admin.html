@@ -52,6 +52,7 @@
       <div class="right">
         <span class="badge" id="countBadge">0 träffar</span>
         <button id="btnClear">Rensa filter</button>
+        <button id="btnLogout">Logga ut</button>
       </div>
     </div>
 
@@ -82,191 +83,229 @@
 </div>
 
 <script>
-  let token = localStorage.getItem("admintoken") || null;
-  let allRows = [];
-  let sortKey = "created_at";
-  let sortDir = "desc";
-  const STATUSES = ["Ny","Under behandling","Godkänd","Avslagen"];
+  (() => {
+    // ===== State =====
+    let token = null;
+    let allRows = [];
+    let sortKey = "created_at";
+    let sortDir = "desc";
+    const STATUSES = ["Ny","Under behandling","Godkänd","Avslagen"];
 
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => document.querySelectorAll(sel);
-  const tbody = $("#tbl tbody");
-  const search = $("#search");
-  const statusFilter = $("#statusFilter");
-  const countBadge = $("#countBadge");
+    // ===== Helpers =====
+    const $  = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
 
-  // Visa rätt vy om token redan finns
-  if (token) {
-    $("#login").style.display = "none";
-    $("#dash").style.display = "block";
-  }
+    const els = {
+      login: $("#login"),
+      dash: $("#dash"),
+      user: $("#user"),
+      pass: $("#pass"),
+      btnLogin: $("#btnLogin"),
+      btnLogout: $("#btnLogout"),
+      btnLoad: $("#btnLoad"),
+      btnClear: $("#btnClear"),
+      search: $("#search"),
+      statusFilter: $("#statusFilter"),
+      countBadge: $("#countBadge"),
+      tbody: $("#tbl tbody"),
+    };
 
-  function esc(s) {
-    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
-
-  function fmtDate(iso) {
-    const d = new Date(iso);
-    if (isNaN(d)) return esc(iso);
-    return d.toLocaleString("sv-SE");
-  }
-
-  function compare(a, b, key) {
-    const va = a[key], vb = b[key];
-    if (key === "id") return Number(va) - Number(vb);
-    if (key === "created_at") return new Date(va) - new Date(vb);
-    return String(va ?? "").localeCompare(String(vb ?? ""), "sv", { sensitivity: "base" });
-  }
-
-  function optionList(current) {
-    return STATUSES.map(s => `<option ${s === current ? "selected":""}>${s}</option>`).join("");
-  }
-
-  function render() {
-    // 1) textfilter
-    const q = (search.value || "").toLowerCase();
-    let rows = allRows.filter(r => {
-      if (!q) return true;
-      return (r.name || "").toLowerCase().includes(q)
-          || (r.email || "").toLowerCase().includes(q)
-          || (r.phone || "").toLowerCase().includes(q)
-          || (r.experience || "").toLowerCase().includes(q)
-          || (r.message || "").toLowerCase().includes(q);
-    });
-
-    // 2) statusfilter
-    const sf = statusFilter.value;
-    if (sf) rows = rows.filter(r => (r.status || "Ny") === sf);
-
-    // 3) sortering
-    rows.sort((a, b) => compare(a, b, sortKey));
-    if (sortDir === "desc") rows.reverse();
-
-    // 4) render
-    tbody.innerHTML = "";
-    rows.forEach(r => {
-      const st = r.status || "Ny";
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="nowrap">${r.id}</td>
-        <td>${esc(r.name)}</td>
-        <td><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
-        <td>${esc(r.phone || "")}</td>
-        <td>${esc(r.address || "")}</td>
-        <td class="nowrap">${esc(r.swimming)}</td>
-        <td>${esc(r.experience)}</td>
-        <td class="nowrap">${esc(r.rescue)}</td>
-        <td class="nowrap">
-          <select class="statusSel" data-id="${r.id}">
-            ${optionList(st)}
-          </select>
-        </td>
-        <td class="nowrap">${fmtDate(r.created_at)}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    countBadge.textContent = `${rows.length} träffar`;
-  }
-
-  // --- Login ---
-  $("#btnLogin")?.addEventListener("click", async () => {
-    const username = $("#user").value.trim();
-    const password = $("#pass").value;
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ username, password })
-    });
-    const json = await res.json();
-    if (res.ok) {
-      token = json.token;
-      localStorage.setItem("admintoken", token);
-      $("#login").style.display = "none";
-      $("#dash").style.display = "block";
-      $("#btnLoad").click();
-    } else {
-      alert(json.error || "Fel inloggning.");
+    function showLogin() {
+      if (els.login) els.login.style.display = "block";
+      if (els.dash)  els.dash.style.display  = "none";
+      if (els.user)  els.user.focus();
     }
-  });
-
-  // --- Ladda data ---
-  $("#btnLoad")?.addEventListener("click", async () => {
-    if (!token) { alert("Du måste logga in."); return; }
-    const res = await fetch("/api/applications", {
-      headers: { "Authorization": "Bearer " + token }
-    });
-    allRows = await res.json();
-    render();
-  });
-
-  // --- Händelser ---
-  search?.addEventListener("input", render);
-  statusFilter?.addEventListener("change", render);
-  $("#btnClear")?.addEventListener("click", () => { search.value = ""; statusFilter.value = ""; render(); });
-
-  $$("th[data-key]").forEach(th => {
-    th.addEventListener("click", () => {
-      const key = th.getAttribute("data-key");
-      if (sortKey === key) {
-        sortDir = (sortDir === "asc") ? "desc" : "asc";
-      } else {
-        sortKey = key;
-        sortDir = (key === "created_at" || key === "id") ? "desc" : "asc";
-      }
-      render();
-    });
-  });
-
-  // --- Uppdatera status (inline) ---
-  tbody.addEventListener("change", async (e) => {
-    const el = e.target;
-    if (!el.classList.contains("statusSel")) return;
-
-    const id = Number(el.getAttribute("data-id"));
-    const status = String(el.value).trim();
-
-    if (!Number.isInteger(id) || id <= 0) {
-      alert("Ogiltigt ID för raden.");
-      return;
+    function showDash() {
+      if (els.login) els.login.style.display = "none";
+      if (els.dash)  els.dash.style.display  = "block";
     }
-    if (!token) {
-      alert("Du måste logga in.");
-      return;
+    function esc(s) {
+      return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      if (isNaN(d)) return esc(iso);
+      return d.toLocaleString("sv-SE");
+    }
+    function compare(a, b, key) {
+      const va = a[key], vb = b[key];
+      if (key === "id") return Number(va) - Number(vb);
+      if (key === "created_at") return new Date(va) - new Date(vb);
+      return String(va ?? "").localeCompare(String(vb ?? ""), "sv", { sensitivity: "base" });
+    }
+    function optionList(current) {
+      return STATUSES.map(s => `<option ${s === current ? "selected":""}>${s}</option>`).join("");
     }
 
-    try {
-      const res = await fetch(`/api/applications/${id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ status })
+    // ===== Render =====
+    function render() {
+      if (!els.tbody) return;
+
+      // 1) textfilter
+      const q = (els.search?.value || "").toLowerCase();
+      let rows = allRows.filter(r => {
+        if (!q) return true;
+        return (r.name || "").toLowerCase().includes(q)
+            || (r.email || "").toLowerCase().includes(q)
+            || (r.phone || "").toLowerCase().includes(q)
+            || (r.experience || "").toLowerCase().includes(q)
+            || (r.message || "").toLowerCase().includes(q);
       });
 
-      const json = await res.json().catch(() => ({}));
+      // 2) statusfilter
+      const sf = els.statusFilter?.value || "";
+      if (sf) rows = rows.filter(r => (r.status || "Ny") === sf);
 
-      if (!res.ok) {
-        console.warn("PATCH fail:", res.status, json);
-        alert(json.error || "Kunde inte uppdatera status.");
-        // Återställ dropdown till tidigare värde
-        const row = allRows.find(r => Number(r.id) === id);
-        if (row) el.value = row.status || "Ny";
-        return;
+      // 3) sortering
+      rows.sort((a, b) => compare(a, b, sortKey));
+      if (sortDir === "desc") rows.reverse();
+
+      // 4) render
+      els.tbody.innerHTML = "";
+      rows.forEach(r => {
+        const st = r.status || "Ny";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="nowrap">${r.id}</td>
+          <td>${esc(r.name)}</td>
+          <td><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+          <td>${esc(r.phone || "")}</td>
+          <td>${esc(r.address || "")}</td>
+          <td class="nowrap">${esc(r.swimming)}</td>
+          <td>${esc(r.experience)}</td>
+          <td class="nowrap">${esc(r.rescue)}</td>
+          <td class="nowrap">
+            <select class="statusSel" data-id="${r.id}">
+              ${optionList(st)}
+            </select>
+          </td>
+          <td class="nowrap">${fmtDate(r.created_at)}</td>
+        `;
+        els.tbody.appendChild(tr);
+      });
+
+      if (els.countBadge) els.countBadge.textContent = `${rows.length} träffar`;
+    }
+
+    // ===== Init (token & vy) =====
+    try { token = localStorage.getItem("admintoken") || null; } catch {}
+    if (token) { showDash(); } else { showLogin(); }
+
+    // ===== Events =====
+    // Login
+    els.btnLogin?.addEventListener("click", async () => {
+      const username = els.user?.value.trim() || "";
+      const password = els.pass?.value || "";
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ username, password })
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        token = json.token;
+        try { localStorage.setItem("admintoken", token); } catch {}
+        showDash();
+        els.btnLoad?.click();
+      } else {
+        alert(json.error || "Fel inloggning.");
+      }
+    });
+
+    // Logout
+    els.btnLogout?.addEventListener("click", () => {
+      try { localStorage.removeItem("admintoken"); } catch {}
+      token = null;
+      if (els.tbody) els.tbody.innerHTML = "";
+      if (els.search) els.search.value = "";
+      if (els.statusFilter) els.statusFilter.value = "";
+      showLogin();
+    });
+
+    // Ladda data
+    els.btnLoad?.addEventListener("click", async () => {
+      if (!token) { alert("Du måste logga in."); return; }
+      const res = await fetch("/api/applications", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      allRows = await res.json();
+      render();
+    });
+
+    // Filter & sort
+    els.search?.addEventListener("input", render);
+    els.statusFilter?.addEventListener("change", render);
+    els.btnClear?.addEventListener("click", () => {
+      if (els.search) els.search.value = "";
+      if (els.statusFilter) els.statusFilter.value = "";
+      render();
+    });
+    $$("th[data-key]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.getAttribute("data-key");
+        if (sortKey === key) {
+          sortDir = (sortDir === "asc") ? "desc" : "asc";
+        } else {
+          sortKey = key;
+          sortDir = (key === "created_at" || key === "id") ? "desc" : "asc";
+        }
+        render();
+      });
+    });
+
+    // Status-uppdatering (PATCH med POST-fallback)
+    els.tbody?.addEventListener("change", async (e) => {
+      const el = e.target;
+      if (!el.classList.contains("statusSel")) return;
+
+      const id = Number(el.getAttribute("data-id"));
+      const status = String(el.value).trim();
+
+      if (!Number.isInteger(id) || id <= 0) {
+        alert("Ogiltigt ID för raden."); return;
+      }
+      if (!token) {
+        alert("Du måste logga in."); return;
       }
 
-      // Uppdatera lokala datan så filter/sortering stämmer direkt
-      const row = allRows.find(r => Number(r.id) === id);
-      if (row) row.status = status;
+      async function send(method) {
+        return fetch(`/api/applications/${id}/status`, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ status })
+        });
+      }
 
-    } catch (err) {
-      console.error("PATCH error:", err);
-      alert("Nätverksfel – kunde inte uppdatera status.");
-      const row = allRows.find(r => Number(r.id) === id);
-      if (row) el.value = row.status || "Ny";
-    }
-  });
+      try {
+        let res = await send("PATCH");
+        if (!res.ok) res = await send("POST"); // fallback
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          alert(json.error || "Kunde inte uppdatera status.");
+          const row = allRows.find(r => Number(r.id) === id);
+          if (row) el.value = row.status || "Ny";
+          return;
+        }
+
+        const row = allRows.find(r => Number(r.id) === id);
+        if (row) row.status = status;
+
+      } catch (err) {
+        console.error("STATUS UPDATE NETWORK ERROR:", err);
+        alert("Nätverksfel – kunde inte uppdatera status.");
+        const row = allRows.find(r => Number(r.id) === id);
+        if (row) el.value = row.status || "Ny";
+      }
+    });
+  })();
 </script>
+
+
+
+
 </body>
 </html>
