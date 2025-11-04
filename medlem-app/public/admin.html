@@ -6,12 +6,20 @@
   <title>Admin – Ansökningar</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    /* Admin-förbättringar – ifall din style.css inte redan har dessa */
+    /* Admin-förbättringar */
     .toolbar {
-      display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 10px 0 20px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      margin: 10px 0 20px;
     }
-    .toolbar .left, .toolbar .right { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    input[type="search"] { padding: 10px; border: 1px solid #ccd6e0; border-radius: 6px; min-width: 220px; }
+    .toolbar .left, .toolbar .right {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    }
+    input[type="search"], input[type="date"] {
+      padding: 10px; border: 1px solid #ccd6e0; border-radius: 6px; min-width: 180px;
+    }
     select { padding: 8px; border: 1px solid #ccd6e0; border-radius: 6px; }
     .table-wrap { overflow: auto; border: 1px solid #eee; border-radius: 8px; }
     .table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
@@ -20,6 +28,47 @@
     .table tbody tr:hover { background: #f6f9ff; }
     .nowrap { white-space: nowrap; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; background: #e9f2ff; color: #003f91; }
+
+    /* --- Detaljmodal --- */
+    .modal-backdrop{
+      position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      display:none; align-items: center; justify-content: center; z-index: 50;
+    }
+    .modal{
+      background:#fff; max-width:720px; width:92%; border-radius:12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.15);
+    }
+    .modal header{ padding:16px 20px; border-bottom:1px solid #eef2f7; display:flex; justify-content:space-between; align-items:center}
+    .modal h3{ margin:0; font-size:1.1rem; color:#003f91 }
+    .modal .body{ padding:18px 20px; }
+    .modal .row{ display:grid; grid-template-columns:150px 1fr; gap:12px; padding:8px 0; border-bottom:1px dashed #f0f4f8; }
+    .modal .row:last-child{ border-bottom:0 }
+    .modal .label{ color:#557; font-weight:600 }
+    .modal .value{ white-space: pre-wrap; }
+    .modal .actions{ padding:12px 20px 20px; display:flex; gap:10px; }
+    .modal .btn{ padding:10px 12px; border-radius:8px; border:1px solid #ccd6e0; background:#f8fbff; cursor:pointer }
+    tr.clickable{ cursor:pointer; }
+    tr.clickable:hover{ background:#f0f6ff; }
+
+    /* Radera-knapp */
+    .btn-icon {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:34px; height:34px; border-radius:8px; border:1px solid #e1e6ee;
+      background:#fff; cursor:pointer;
+    }
+    .btn-icon:hover{ background:#ffe9e9; border-color:#ffb7b7; }
+    .btn-danger { background:#e02424; color:#fff; border-color:#d11f1f; }
+    .btn-danger:hover{ background:#c61c1c; }
+
+    .btn-primary { background:#003f91; color:#fff; border:1px solid #00357b; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .btn-primary:hover{ background:#0055c4; }
+    .btn { padding:10px 12px; border-radius:8px; border:1px solid #ccd6e0; background:#f8fbff; cursor:pointer }
+
+    .col-actions { width: 70px; }
+    .muted { color:#667; font-size:.9rem; }
+    .split { height: 24px; width:1px; background:#e0e6ef; align-self:center; }
+    .dateGroup { display:flex; gap:8px; align-items:center; }
+    .dateGroup label{ font-size:.9rem; color:#335; }
   </style>
 </head>
 <body>
@@ -39,7 +88,7 @@
   <div id="dash" style="display:none">
     <div class="toolbar">
       <div class="left">
-        <button id="btnLoad">Ladda ansökningar</button>
+        <button id="btnLoad" class="btn-primary">Ladda</button>
         <input id="search" type="search" placeholder="Sök namn, e-post, telefon..." />
         <select id="statusFilter" title="Filtrera status">
           <option value="">Alla statusar</option>
@@ -48,11 +97,20 @@
           <option>Godkänd</option>
           <option>Avslagen</option>
         </select>
+        <span class="split"></span>
+        <div class="dateGroup">
+          <label for="dateFrom">Från</label>
+          <input id="dateFrom" type="date" />
+          <label for="dateTo">Till</label>
+          <input id="dateTo" type="date" />
+          <button id="btnClearDates" class="btn">Rensa datum</button>
+        </div>
       </div>
       <div class="right">
         <span class="badge" id="countBadge">0 träffar</span>
-        <button id="btnClear">Rensa filter</button>
-        <button id="btnLogout">Logga ut</button>
+        <button id="btnExport" class="btn-primary">Exportera (CSV)</button>
+        <button id="btnClear" class="btn">Rensa filter</button>
+        <button id="btnLogout" class="btn">Logga ut</button>
       </div>
     </div>
 
@@ -70,14 +128,49 @@
           <th data-key="rescue">Räddning</th>
           <th data-key="status" class="nowrap">Status</th>
           <th data-key="created_at" class="nowrap">Skickad</th>
+          <th class="col-actions">Åtg.</th>
         </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
 
+    <!-- Detaljmodal -->
+    <div id="detailsBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+        <header>
+          <h3 id="detailsTitle">Ansökan</h3>
+          <button id="detailsClose" class="btn" type="button">Stäng</button>
+        </header>
+        <div class="body" id="detailsBody"></div>
+        <div class="actions">
+          <a id="mailLink" class="btn" href="#">Skicka e-post</a>
+          <a id="telLink" class="btn" href="#">Ring</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bekräfta radering -->
+    <div id="confirmBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <header>
+          <h3 id="confirmTitle">Ta bort ansökan</h3>
+        </header>
+        <div class="body">
+          <p class="muted">Är du säker på att du vill ta bort följande ansökan?</p>
+          <div class="row"><div class="label">ID</div><div class="value" id="confirmId"></div></div>
+          <div class="row"><div class="label">Namn</div><div class="value" id="confirmName"></div></div>
+          <div class="row"><div class="label">E-post</div><div class="value" id="confirmEmail"></div></div>
+        </div>
+        <div class="actions">
+          <button id="btnCancelDelete" class="btn" type="button">Avbryt</button>
+          <button id="btnConfirmDelete" class="btn btn-danger" type="button">Ta bort</button>
+        </div>
+      </div>
+    </div>
+
     <p style="margin-top:12px;color:#666;font-size:.9rem">
-      Tips: Klicka på rubrikerna för att sortera. Skriv i sökfältet för att filtrera. Använd statusfiltret för att visa en viss status.
+      Tips: Använd sök + status + datum för att filtrera. Klicka på en rad för detaljvy. Exportera (CSV) tar med nuvarande filtrerade träffar.
     </p>
   </div>
 </div>
@@ -90,6 +183,7 @@
     let sortKey = "created_at";
     let sortDir = "desc";
     const STATUSES = ["Ny","Under behandling","Godkänd","Avslagen"];
+    let pendingDeleteId = null;
 
     // ===== Helpers =====
     const $  = (sel) => document.querySelector(sel);
@@ -104,20 +198,35 @@
       btnLogout: $("#btnLogout"),
       btnLoad: $("#btnLoad"),
       btnClear: $("#btnClear"),
+      btnClearDates: $("#btnClearDates"),
+      btnExport: $("#btnExport"),
       search: $("#search"),
       statusFilter: $("#statusFilter"),
+      dateFrom: $("#dateFrom"),
+      dateTo: $("#dateTo"),
       countBadge: $("#countBadge"),
       tbody: $("#tbl tbody"),
+      detailsBackdrop: $("#detailsBackdrop"),
+      confirmBackdrop: $("#confirmBackdrop"),
+      confirmId: $("#confirmId"),
+      confirmName: $("#confirmName"),
+      confirmEmail: $("#confirmEmail"),
+      btnCancelDelete: $("#btnCancelDelete"),
+      btnConfirmDelete: $("#btnConfirmDelete"),
+      detailsClose: $("#detailsClose"),
+      detailsBody: $("#detailsBody"),
+      mailLink: $("#mailLink"),
+      telLink: $("#telLink"),
     };
 
     function showLogin() {
-      if (els.login) els.login.style.display = "block";
-      if (els.dash)  els.dash.style.display  = "none";
-      if (els.user)  els.user.focus();
+      els.login.style.display = "block";
+      els.dash.style.display  = "none";
+      els.user.focus();
     }
     function showDash() {
-      if (els.login) els.login.style.display = "none";
-      if (els.dash)  els.dash.style.display  = "block";
+      els.login.style.display = "none";
+      els.dash.style.display  = "block";
     }
     function esc(s) {
       return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -137,34 +246,55 @@
       return STATUSES.map(s => `<option ${s === current ? "selected":""}>${s}</option>`).join("");
     }
 
+    // ===== Filtering (text + status + date) =====
+    function filteredRows(){
+      const q = (els.search?.value || "").toLowerCase();
+      const sf = els.statusFilter?.value || "";
+      const fromStr = els.dateFrom?.value || "";
+      const toStr   = els.dateTo?.value || "";
+
+      // Build date bounds (inclusive dates: from at 00:00, to at 23:59:59)
+      const from = fromStr ? new Date(fromStr + "T00:00:00") : null;
+      const to   = toStr   ? new Date(toStr   + "T23:59:59") : null;
+
+      return allRows.filter(r => {
+        // text filter
+        const textOk = !q || (r.name||"").toLowerCase().includes(q)
+                          || (r.email||"").toLowerCase().includes(q)
+                          || (r.phone||"").toLowerCase().includes(q)
+                          || (r.experience||"").toLowerCase().includes(q)
+                          || (r.message||"").toLowerCase().includes(q);
+
+        if (!textOk) return false;
+
+        // status filter
+        if (sf && (r.status || "Ny") !== sf) return false;
+
+        // date filter
+        if (from || to) {
+          const created = new Date(r.created_at);
+          if (isNaN(created)) return false;
+          if (from && created < from) return false;
+          if (to && created > to) return false;
+        }
+
+        return true;
+      });
+    }
+
     // ===== Render =====
     function render() {
-      if (!els.tbody) return;
+      let rows = filteredRows();
 
-      // 1) textfilter
-      const q = (els.search?.value || "").toLowerCase();
-      let rows = allRows.filter(r => {
-        if (!q) return true;
-        return (r.name || "").toLowerCase().includes(q)
-            || (r.email || "").toLowerCase().includes(q)
-            || (r.phone || "").toLowerCase().includes(q)
-            || (r.experience || "").toLowerCase().includes(q)
-            || (r.message || "").toLowerCase().includes(q);
-      });
-
-      // 2) statusfilter
-      const sf = els.statusFilter?.value || "";
-      if (sf) rows = rows.filter(r => (r.status || "Ny") === sf);
-
-      // 3) sortering
       rows.sort((a, b) => compare(a, b, sortKey));
       if (sortDir === "desc") rows.reverse();
 
-      // 4) render
       els.tbody.innerHTML = "";
       rows.forEach(r => {
         const st = r.status || "Ny";
         const tr = document.createElement("tr");
+        tr.classList.add("clickable");
+        tr.dataset.id = r.id;
         tr.innerHTML = `
           <td class="nowrap">${r.id}</td>
           <td>${esc(r.name)}</td>
@@ -180,22 +310,70 @@
             </select>
           </td>
           <td class="nowrap">${fmtDate(r.created_at)}</td>
+          <td class="nowrap">
+            <button class="btn-icon deleteBtn" title="Radera" data-id="${r.id}" aria-label="Radera ansökan ${r.id}">🗑️</button>
+          </td>
         `;
         els.tbody.appendChild(tr);
       });
 
-      if (els.countBadge) els.countBadge.textContent = `${rows.length} träffar`;
+      els.countBadge.textContent = `${rows.length} träffar`;
     }
 
-    // ===== Init (token & vy) =====
+    // ===== CSV Export (semicolon for Swedish Excel) =====
+    function toCSV(rows){
+      const headers = ["ID","Namn","E-post","Telefon","Adress","Simkunnig","Erfarenhet","Räddning","Status","Skickad","Övrigt"];
+      const lines = [headers.map(h => `"${h}"`).join(";")];
+
+      function cell(v){
+        const s = String(v ?? "");
+        // Escape " by doubling; wrap in quotes; also replace CRLF
+        return `"${s.replace(/"/g,'""').replace(/\r\n/g,"\n").replace(/\r/g,"\n")}"`;
+      }
+
+      rows.forEach(r => {
+        lines.push([
+          r.id,
+          r.name,
+          r.email,
+          r.phone || "",
+          r.address || "",
+          r.swimming,
+          r.experience,
+          r.rescue,
+          r.status || "Ny",
+          fmtDate(r.created_at),
+          r.message || ""
+        ].map(cell).join(";"));
+      });
+
+      // Prepend BOM for Excel
+      return "\uFEFF" + lines.join("\n");
+    }
+
+    function downloadCSV(filename, content){
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    // ===== Init =====
     try { token = localStorage.getItem("admintoken") || null; } catch {}
     if (token) { showDash(); } else { showLogin(); }
 
     // ===== Events =====
     // Login
-    els.btnLogin?.addEventListener("click", async () => {
-      const username = els.user?.value.trim() || "";
-      const password = els.pass?.value || "";
+    $("#btnLogin").addEventListener("click", async () => {
+      const username = els.user.value.trim();
+      const password = els.pass.value;
       const res = await fetch("/api/login", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
@@ -204,26 +382,28 @@
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         token = json.token;
-        try { localStorage.setItem("admintoken", token); } catch {}
+        localStorage.setItem("admintoken", token);
         showDash();
-        els.btnLoad?.click();
+        $("#btnLoad").click();
       } else {
         alert(json.error || "Fel inloggning.");
       }
     });
 
     // Logout
-    els.btnLogout?.addEventListener("click", () => {
-      try { localStorage.removeItem("admintoken"); } catch {}
+    $("#btnLogout").addEventListener("click", () => {
+      localStorage.removeItem("admintoken");
       token = null;
-      if (els.tbody) els.tbody.innerHTML = "";
-      if (els.search) els.search.value = "";
-      if (els.statusFilter) els.statusFilter.value = "";
+      els.tbody.innerHTML = "";
+      els.search.value = "";
+      els.statusFilter.value = "";
+      els.dateFrom.value = "";
+      els.dateTo.value = "";
       showLogin();
     });
 
     // Ladda data
-    els.btnLoad?.addEventListener("click", async () => {
+    $("#btnLoad").addEventListener("click", async () => {
       if (!token) { alert("Du måste logga in."); return; }
       const res = await fetch("/api/applications", {
         headers: { "Authorization": "Bearer " + token }
@@ -233,11 +413,20 @@
     });
 
     // Filter & sort
-    els.search?.addEventListener("input", render);
-    els.statusFilter?.addEventListener("change", render);
-    els.btnClear?.addEventListener("click", () => {
-      if (els.search) els.search.value = "";
-      if (els.statusFilter) els.statusFilter.value = "";
+    $("#search").addEventListener("input", render);
+    $("#statusFilter").addEventListener("change", render);
+    $("#dateFrom").addEventListener("change", render);
+    $("#dateTo").addEventListener("change", render);
+    $("#btnClearDates").addEventListener("click", () => {
+      els.dateFrom.value = "";
+      els.dateTo.value = "";
+      render();
+    });
+    $("#btnClear").addEventListener("click", () => {
+      els.search.value = "";
+      els.statusFilter.value = "";
+      els.dateFrom.value = "";
+      els.dateTo.value = "";
       render();
     });
     $$("th[data-key]").forEach(th => {
@@ -253,59 +442,170 @@
       });
     });
 
-    // Status-uppdatering (PATCH med POST-fallback)
-    els.tbody?.addEventListener("change", async (e) => {
+    // Export
+    $("#btnExport").addEventListener("click", () => {
+      const rows = filteredRows().sort((a, b) => compare(a, b, sortKey));
+      if (sortDir === "desc") rows.reverse();
+
+      if (rows.length === 0) {
+        alert("Inga rader att exportera. Justera filtren.");
+        return;
+      }
+      // Filename with date filters
+      const from = els.dateFrom.value || "alla";
+      const to = els.dateTo.value || "alla";
+      const filename = `ansokningar_${from}_till_${to}.csv`.replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+      const csv = toCSV(rows);
+      downloadCSV(filename, csv);
+    });
+
+    // Statusuppdatering
+    els.tbody.addEventListener("change", async (e) => {
       const el = e.target;
       if (!el.classList.contains("statusSel")) return;
-
       const id = Number(el.getAttribute("data-id"));
       const status = String(el.value).trim();
-
-      if (!Number.isInteger(id) || id <= 0) {
-        alert("Ogiltigt ID för raden."); return;
-      }
-      if (!token) {
-        alert("Du måste logga in."); return;
-      }
-
+      if (!Number.isInteger(id) || id <= 0) return alert("Ogiltigt ID.");
+      if (!token) return alert("Du måste logga in.");
       async function send(method) {
         return fetch(`/api/applications/${id}/status`, {
           method,
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + token
-          },
+          headers: {"Content-Type": "application/json","Authorization": "Bearer " + token},
           body: JSON.stringify({ status })
         });
       }
-
       try {
         let res = await send("PATCH");
-        if (!res.ok) res = await send("POST"); // fallback
+        if (!res.ok) res = await send("POST");
         const json = await res.json().catch(() => ({}));
-
         if (!res.ok) {
           alert(json.error || "Kunde inte uppdatera status.");
           const row = allRows.find(r => Number(r.id) === id);
           if (row) el.value = row.status || "Ny";
           return;
         }
-
         const row = allRows.find(r => Number(r.id) === id);
         if (row) row.status = status;
-
       } catch (err) {
-        console.error("STATUS UPDATE NETWORK ERROR:", err);
         alert("Nätverksfel – kunde inte uppdatera status.");
         const row = allRows.find(r => Number(r.id) === id);
         if (row) el.value = row.status || "Ny";
       }
     });
-  })();
+
+    // ===== Detaljvy (modal) =====
+    const backdrop = els.detailsBackdrop;
+    const bodyEl   = els.detailsBody;
+    const closeBtn = els.detailsClose;
+    const mailLink = els.mailLink;
+    const telLink  = els.telLink;
+
+    function nl2br(s){ return esc(s).replace(/\n/g, "<br>"); }
+
+    function openDetails(row){
+      if (!backdrop || !bodyEl) return;
+      const msg = row.message || "";
+      bodyEl.innerHTML = `
+        <div class="row"><div class="label">ID</div><div class="value">${row.id}</div></div>
+        <div class="row"><div class="label">Namn</div><div class="value">${esc(row.name)}</div></div>
+        <div class="row"><div class="label">E-post</div><div class="value"><a href="mailto:${esc(row.email)}">${esc(row.email)}</a></div></div>
+        <div class="row"><div class="label">Telefon</div><div class="value">${esc(row.phone || "")}</div></div>
+        <div class="row"><div class="label">Adress</div><div class="value">${esc(row.address || "")}</div></div>
+        <div class="row"><div class="label">Simkunnig</div><div class="value">${esc(row.swimming)}</div></div>
+        <div class="row"><div class="label">Erfarenhet</div><div class="value">${esc(row.experience)}</div></div>
+        <div class="row"><div class="label">Räddning</div><div class="value">${esc(row.rescue)}</div></div>
+        <div class="row"><div class="label">Status</div><div class="value">${esc(row.status || "Ny")}</div></div>
+        <div class="row"><div class="label">Skickad</div><div class="value">${fmtDate(row.created_at)}</div></div>
+        <div class="row"><div class="label">Övrigt</div><div class="value">${nl2br(msg)}</div></div>
+      `;
+      if (mailLink) mailLink.href = `mailto:${row.email}`;
+      if (telLink)  telLink.href  = row.phone ? `tel:${row.phone}` : "#";
+      backdrop.style.display = "flex";
+      backdrop.setAttribute("aria-hidden","false");
+    }
+
+    function closeDetails(){
+      backdrop.style.display = "none";
+      backdrop.setAttribute("aria-hidden","true");
+    }
+
+    closeBtn.addEventListener("click", closeDetails);
+    backdrop.addEventListener("click", (e)=> { if (e.target === backdrop) closeDetails(); });
+    document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeDetails(); });
+
+    // Öppna detaljvy på rad-klick (ej på länkar/select/delete-knapp)
+    els.tbody.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!t) return;
+      if (t.closest("select") || t.tagName === "A" || t.classList.contains("deleteBtn")) return;
+      const tr = t.closest("tr");
+      if (!tr) return;
+      const id = Number(tr.dataset.id);
+      const row = allRows.find(r => Number(r.id) === id);
+      if (row) openDetails(row);
+    });
+
+    // ===== Radering =====
+    function openConfirm(row){
+      pendingDeleteId = row.id;
+      els.confirmId.textContent = row.id;
+      els.confirmName.textContent = row.name || "";
+      els.confirmEmail.textContent = row.email || "";
+      els.confirmBackdrop.style.display = "flex";
+      els.confirmBackdrop.setAttribute("aria-hidden","false");
+    }
+    function closeConfirm(){
+      els.confirmBackdrop.style.display = "none";
+      els.confirmBackdrop.setAttribute("aria-hidden","true");
+      pendingDeleteId = null;
+    }
+
+    els.btnCancelDelete.addEventListener("click", closeConfirm);
+    els.confirmBackdrop.addEventListener("click", (e)=> {
+      if (e.target === els.confirmBackdrop) closeConfirm();
+    });
+    document.addEventListener("keydown", (e)=> {
+      if (e.key === "Escape") closeConfirm();
+    });
+
+    // Klick på papperskorg
+    els.tbody.addEventListener("click", (e) => {
+      const btn = e.target.closest(".deleteBtn");
+      if (!btn) return;
+      e.stopPropagation();
+      const id = Number(btn.getAttribute("data-id"));
+      const row = allRows.find(r => Number(r.id) === id);
+      if (!row) return;
+      openConfirm(row);
+    });
+
+    // Bekräfta radering
+    els.btnConfirmDelete.addEventListener("click", async () => {
+      const id = pendingDeleteId;
+      if (!id) return;
+      if (!token) { alert("Du måste logga in."); return; }
+      try {
+        const res = await fetch(`/api/applications/${id}`, {
+          method: "DELETE",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          alert(json.error || "Kunde inte radera ansökan.");
+          return;
+        }
+        // Ta bort lokalt och rendera om
+        allRows = allRows.filter(r => Number(r.id) !== Number(id));
+        render();
+        closeConfirm();
+        // Stäng även detaljmodal om den råkade vara öppen
+        closeDetails();
+      } catch (err) {
+        alert("Nätverksfel – kunde inte radera.");
+      }
+    });
+
+  })(); // end IIFE
 </script>
-
-
-
-
 </body>
 </html>

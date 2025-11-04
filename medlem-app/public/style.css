@@ -175,3 +175,81 @@ input[type="search"] {
 .btn { display:inline-block; font-weight:600; padding:10px 14px; border-radius:6px; text-decoration:none; }
 .btn-outline { border:1px solid #003f91; color:#003f91; background:transparent; transition:all .2s; }
 .btn-outline:hover { background:#003f91; color:#fff; }
+
+
+/* --- Detaljmodal --- */
+.modal-backdrop{
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  display:none; align-items: center; justify-content: center; z-index: 50;
+}
+.modal{
+  background:#fff; max-width:720px; width:92%; border-radius:12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+.modal header{ padding:16px 20px; border-bottom:1px solid #eef2f7; display:flex; justify-content:space-between; align-items:center}
+.modal h3{ margin:0; font-size:1.1rem; color:#003f91 }
+.modal .body{ padding:18px 20px; }
+.modal .row{ display:grid; grid-template-columns:150px 1fr; gap:12px; padding:8px 0; border-bottom:1px dashed #f0f4f8; }
+.modal .row:last-child{ border-bottom:0 }
+.modal .label{ color:#557; font-weight:600 }
+.modal .value{ white-space: pre-wrap; }
+.modal .actions{ padding:12px 20px 20px; display:flex; gap:10px; }
+.modal .btn{ padding:10px 12px; border-radius:8px; border:1px solid #ccd6e0; background:#f8fbff; cursor:pointer }
+tr.clickable{ cursor:pointer; }
+tr.clickable:hover{ background:#f0f6ff; }
+
+
+.btn-icon {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border-radius:8px; border:1px solid #e1e6ee;
+  background:#fff; cursor:pointer;
+}
+.btn-icon:hover{ background:#ffe9e9; border-color:#ffb7b7; }
+.btn-danger { background:#e02424; color:#fff; border-color:#d11f1f; }
+.btn-danger:hover{ background:#c61c1c; }
+.col-actions { width: 70px; }
+.muted { color:#667; font-size:.9rem; }
+
+
+/* ==== Förbättrade knappar i adminpanelen ==== */
+.btn {
+  background: #f2f6ff;
+  color: #003f91;
+  border: 1px solid #b5c5e3;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: #e4edff;
+}
+
+.btn:disabled {
+  background: #e9eef7;
+  color: #9aa3b9;
+  border: 1px solid #ccd3e0;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #003f91;
+  color: #fff;
+  border: 1px solid #00357b;
+}
+
+.btn-primary:hover {
+  background: #0052cc;
+}
+
+.btn-danger {
+  background: #e02424;
+  color: #fff;
+  border: 1px solid #c81f1f;
+}
+
+.btn-danger:hover {
+  background: #c61c1c;
+}
+

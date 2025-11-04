@@ -120,6 +120,27 @@ app.patch("/api/applications/:id/status", auth, (req, res) => {
   });
 });
 
+// ====== ADMIN: radera ansökan (skyddad) ======
+app.delete("/api/applications/:id", auth, (req, res) => {
+  const idNum = Number(req.params.id);
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    return res.status(400).json({ error: "Ogiltigt id." });
+  }
+
+  const sql = "DELETE FROM applications WHERE id = ?";
+  db.run(sql, [idNum], function (err) {
+    if (err) {
+      console.error("SQLite error:", err);
+      return res.status(500).json({ error: "Kunde inte radera ansökan." });
+    }
+    if (this.changes === 0) {
+      return res.status(404).json({ error: "Hittade ingen ansökan med det ID:t." });
+    }
+    res.json({ ok: true, id: idNum });
+  });
+});
+
+
 // --- Starta servern ---
 app.listen(PORT, () => {
   console.log(`Server kör på http://localhost:${PORT}`);
