@@ -6,7 +6,7 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 
-const db = require("./config/db");         // SQLite-koppling (config/db.js)
+const db = require("./db");         // SQLite-koppling (config/db.js)
 
 const app = express();
 const PORT = 3000; // kör lokalt på port 3000
