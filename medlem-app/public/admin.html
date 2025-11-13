@@ -365,9 +365,11 @@
       }, 0);
     }
 
-    // ===== Init =====
-    try { token = localStorage.getItem("admintoken") || null; } catch {}
-    if (token) { showDash(); } else { showLogin(); }
+// ===== Init =====
+// Alltid kräva inloggning när sidan öppnas
+token = null;
+showLogin();
+
 
     // ===== Events =====
     // Login

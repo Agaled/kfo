@@ -253,3 +253,23 @@ tr.clickable:hover{ background:#f0f6ff; }
   background: #c61c1c;
 }
 
+
+
+/* ============================
+   FORCE "TA BORT"-KNAPP STYLING
+   ============================ */
+
+#btnConfirmDelete,
+#btnConfirmDelete.btn-danger {
+  background-color: #e02424 !important; /* Röd */
+  color: #ffffff !important;            /* Vit text */
+  border: 1px solid #c81f1f !important;
+  opacity: 1 !important;
+}
+
+/* Hover */
+#btnConfirmDelete:hover {
+  background-color: #c61c1c !important;
+  border-color: #a51818 !important;
+  color: #fff !important;
+}
