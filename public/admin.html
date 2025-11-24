@@ -122,6 +122,44 @@
   padding: 4px 6px;
 }
 
+    /* Mobilanpassning för modaler och bottendelen */
+@media (max-width: 600px) {
+
+  /* Gör själva modalen nästan fullbredd */
+  .modal {
+    width: 95%;
+    max-width: 95%;
+    margin: 0 2.5%;
+  }
+
+  /* Låt logg-innehållet scrolla inne i rutan */
+  .modal .body {
+    max-height: 60vh;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+
+  /* Logg-tabellen får scrolla horisontellt om den är bred */
+  .modal .body table {
+    min-width: 480px;
+  }
+    .bottom-bar {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+  }
+
+  .bottom-bar .tips-text {
+    font-size: 0.85rem;
+  }
+
+  .bottom-bar .btn,
+  .bottom-bar .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 
   </style>
 </head>
