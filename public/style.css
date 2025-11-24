@@ -273,3 +273,170 @@ tr.clickable:hover{ background:#f0f6ff; }
   border-color: #a51818 !important;
   color: #fff !important;
 }
+
+
+/* ===== FULL MOBILFIX –  alla element får hålla sig inom skärmen ===== */
+@media (max-width: 768px) {
+
+  /* Se till att aldrig överskrida skärmens bredd */
+  html, body, .container {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Gör alla inputs, selects och knappar helbredd på mobil */
+  .toolbar input,
+  .toolbar select,
+  .toolbar button,
+  .toolbar .left *,
+  .toolbar .right * {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;     /* detta är NYCKELN */
+  }
+
+  /* Gör search-fältet helbredd */
+  input[type="search"] {
+    width: 100% !important;
+  }
+
+  /* Gör datumfälten och "Från / Till"-grupper flexande */
+  .dateGroup {
+    width: 100% !important;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dateGroup input {
+    width: 100% !important;
+  }
+
+  /* Se till att knappar radbryts snyggt */
+  .right,
+  .left {
+    width: 100% !important;
+  }
+
+  /* Förhindra att badges och små element trycker ut bredden */
+  .badge {
+    max-width: 100%;
+    display: inline-block;
+  }
+
+  /* Table-wrap scrollar internt, inte hela sidan */
+  .table-wrap {
+    overflow-x: auto;
+    max-width: 100% !important;
+  }
+
+  /* Tabellen kan radbryta celler */
+  .table th,
+  .table td {
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+}
+
+
+/* ==== Återställ tabell-kolumner på mobil ==== */
+@media (max-width: 768px) {
+
+  /* Behåll normal layout i tabellen och låt den scrollas horisontellt i .table-wrap */
+  .table {
+    min-width: 700px;           /* ungefärlig totalbredd, justera om du vill */
+    table-layout: auto !important;
+  }
+
+  .table th,
+  .table td {
+    white-space: nowrap !important;   /* texten ligger på en rad */
+    word-break: normal !important;    /* inga konstiga brytningar mitt i ord */
+  }
+
+  /* Behåll fortfarande intern scroll på tabellen, inte på hela sidan */
+  .table-wrap {
+    max-width: 100% !important;
+    overflow-x: auto;
+  }
+}
+
+
+/* === Grön pulserande success-popup === */
+.success-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;               /* dold tills JS visar den */
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.success-modal {
+  background: #28a745;         /* helt grön box */
+  color: #ffffff;
+  border-radius: 14px;
+  padding: 24px 20px;
+  width: 90%;
+  max-width: 380px;
+  text-align: center;
+  box-shadow: 0 6px 25px rgba(0,0,0,0.35);
+  animation: success-pulse 1.4s infinite ease-in-out;
+}
+
+.success-modal h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.6rem;
+}
+
+.success-modal p {
+  margin: 0 0 18px;
+  font-size: 1rem;
+}
+
+.success-close-btn {
+  background: #ffffff;
+  color: #28a745;
+  padding: 10px 16px;
+  width: 100%;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Pulserande effekt */
+@keyframes success-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(40,167,69,0.7); }
+  50%  { transform: scale(1.03); box-shadow: 0 0 18px 10px rgba(40,167,69,0.35); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(40,167,69,0.7); }
+}
+
+/* Bredare container när admin-dashboarden är aktiv */
+body.admin-mode .container {
+  max-width: 1300px;
+}
+
+/* På mobil – håll den ändå inom skärmen */
+@media (max-width: 768px) {
+  body.admin-mode .container {
+    max-width: 100%;
+  }
+}
+
+.bottom-bar {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: .9rem;
+  color: #666;
+}
+
+.bottom-bar .tips-text {
+  margin: 0;
+}
+
+

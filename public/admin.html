@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin – Ansökningar</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="style.css">
   <style>
     /* Admin-förbättringar */
     .toolbar {
@@ -34,6 +34,10 @@
       position: fixed; inset: 0; background: rgba(0,0,0,.35);
       display:none; align-items: center; justify-content: center; z-index: 50;
     }
+    .modal-backdrop.show {
+  display: flex;
+}
+
     .modal{
       background:#fff; max-width:720px; width:92%; border-radius:12px;
       box-shadow: 0 10px 30px rgba(0,0,0,.15);
@@ -69,6 +73,56 @@
     .split { height: 24px; width:1px; background:#e0e6ef; align-self:center; }
     .dateGroup { display:flex; gap:8px; align-items:center; }
     .dateGroup label{ font-size:.9rem; color:#335; }
+
+
+
+    /* ==== Mobilanpassning admin ==== */
+@media (max-width: 768px) {
+  /* Hindra horisontell scroll på sidan */
+  html, body {
+    margin: 0;
+    padding: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Gör toolbaren staplad istället för bred */
+  .toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .toolbar .left,
+  .toolbar .right {
+    flex-wrap: wrap;
+  }
+
+  /* Fält/knappar i toolbaren får ta hela bredden om det behövs */
+  .toolbar input[type="search"],
+  .toolbar input[type="date"],
+  .toolbar select,
+  .toolbar button {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Tabellen får egen horisontell scroll om den blir bred */
+  .table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
+ .modal .body table.small td,
+.modal .body table.small th {
+  font-size: 0.8rem;
+  padding: 4px 6px;
+}
+
+
   </style>
 </head>
 <body>
@@ -76,20 +130,27 @@
   <h1>Admin – Ansökningar</h1>
 
   <!-- Login -->
+  <!-- Login -->
   <div id="login">
     <label for="user">Användarnamn</label>
     <input id="user" type="text" required />
+
     <label for="pass">Lösenord</label>
     <input id="pass" type="password" required />
+
+    <label for="adminName">Ditt namn (för loggning)</label>
+    <input id="adminName" type="text" placeholder="T.ex. Anna, Peter" />
+
     <button id="btnLogin">Logga in</button>
   </div>
 
+
   <!-- Dashboard -->
-  <div id="dash" style="display:none">
+  <div id="dash">
     <div class="toolbar">
       <div class="left">
-        <button id="btnLoad" class="btn-primary">Ladda</button>
         <input id="search" type="search" placeholder="Sök namn, e-post, telefon..." />
+
         <select id="statusFilter" title="Filtrera status">
           <option value="">Alla statusar</option>
           <option>Ny</option>
@@ -97,7 +158,9 @@
           <option>Godkänd</option>
           <option>Avslagen</option>
         </select>
-        <span class="split"></span>
+
+        <button id="btnClear" class="btn-primary">Rensa filter</button>
+
         <div class="dateGroup">
           <label for="dateFrom">Från</label>
           <input id="dateFrom" type="date" />
@@ -106,13 +169,13 @@
           <button id="btnClearDates" class="btn">Rensa datum</button>
         </div>
       </div>
+
       <div class="right">
         <span class="badge" id="countBadge">0 träffar</span>
-        <button id="btnExport" class="btn-primary">Exportera (CSV)</button>
-        <button id="btnClear" class="btn">Rensa filter</button>
-        <button id="btnLogout" class="btn">Logga ut</button>
+        <button id="btnLogout" class="btn-primary">Logga ut</button>
       </div>
     </div>
+
 
     <div class="table-wrap">
       <table id="tbl" class="table">
@@ -158,9 +221,15 @@
         </header>
         <div class="body">
           <p class="muted">Är du säker på att du vill ta bort följande ansökan?</p>
-          <div class="row"><div class="label">ID</div><div class="value" id="confirmId"></div></div>
-          <div class="row"><div class="label">Namn</div><div class="value" id="confirmName"></div></div>
-          <div class="row"><div class="label">E-post</div><div class="value" id="confirmEmail"></div></div>
+          <div class="row">
+            <div class="label">ID</div><div class="value" id="confirmId"></div>
+          </div>
+          <div class="row">
+            <div class="label">Namn</div><div class="value" id="confirmName"></div>
+          </div>
+          <div class="row">
+            <div class="label">E-post</div><div class="value" id="confirmEmail"></div>
+          </div>
         </div>
         <div class="actions">
           <button id="btnCancelDelete" class="btn" type="button">Avbryt</button>
@@ -169,15 +238,49 @@
       </div>
     </div>
 
-    <p style="margin-top:12px;color:#666;font-size:.9rem">
-      Tips: Använd sök + status + datum för att filtrera. Klicka på en rad för detaljvy. Exportera (CSV) tar med nuvarande filtrerade träffar.
-    </p>
+    <!-- Logg-modal -->
+    <div id="logsBackdrop" class="modal-backdrop" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="logsTitle">
+        <header>
+          <h3 id="logsTitle">Admin-loggar</h3>
+          <button id="logsClose" class="btn" type="button">Stäng</button>
+        </header>
+
+        <div class="body">
+          <table class="table small">
+            <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tid</th>
+              <th>Admin</th>
+              <th>Åtgärd</th>
+              <th>Ansökan</th>
+              <th>Detaljer</th>
+            </tr>
+            </thead>
+            <tbody id="logsTable"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <p class="tips-text">
+        Tips: Använd sök + status + datum för att filtrera. Klicka på en rad för detaljvy.
+        Exportera (CSV) tar med nuvarande filtrerade träffar.
+      </p>
+      <button id="btnExport" class="btn-primary">Exportera (CSV)</button>
+      <button id="btnLogs" class="btn">Loggar</button>
+    </div>
   </div>
-</div>
+
 
 <script>
   (() => {
     // ===== State =====
+    const API_BASE = "https://kfo-1.onrender.com";
+
     let token = null;
     let allRows = [];
     let sortKey = "created_at";
@@ -194,9 +297,9 @@
       dash: $("#dash"),
       user: $("#user"),
       pass: $("#pass"),
+      adminName: $("#adminName"),
       btnLogin: $("#btnLogin"),
       btnLogout: $("#btnLogout"),
-      btnLoad: $("#btnLoad"),
       btnClear: $("#btnClear"),
       btnClearDates: $("#btnClearDates"),
       btnExport: $("#btnExport"),
@@ -217,17 +320,32 @@
       detailsBody: $("#detailsBody"),
       mailLink: $("#mailLink"),
       telLink: $("#telLink"),
+      logsBackdrop: $("#logsBackdrop"),
+      logsClose: $("#logsClose"),
+      logsTable: $("#logsTable"),
+      btnLogs: $("#btnLogs"),
     };
 
-    function showLogin() {
-      els.login.style.display = "block";
-      els.dash.style.display  = "none";
-      els.user.focus();
+    // Namn på administratören (för loggning)
+    let actorName = localStorage.getItem("adminName") || "";
+    if (els.adminName) {
+      els.adminName.value = actorName;  // fyll i senast använda namn i fältet
     }
-    function showDash() {
-      els.login.style.display = "none";
-      els.dash.style.display  = "block";
-    }
+
+
+function showLogin() {
+  document.body.classList.remove("admin-mode");   // smal layout
+  els.login.style.display = "block";
+  els.dash.style.display  = "none";
+  els.user.focus();
+}
+
+function showDash() {
+  document.body.classList.add("admin-mode");      // bred layout
+  els.login.style.display = "none";
+  els.dash.style.display  = "block";
+}
+
     function esc(s) {
       return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     }
@@ -376,21 +494,26 @@ showLogin();
     $("#btnLogin").addEventListener("click", async () => {
       const username = els.user.value.trim();
       const password = els.pass.value;
-      const res = await fetch("/api/login", {
+
+      // Läs och spara namnet för loggning
+      actorName = (els.adminName?.value || "").trim() || "Okänd admin";
+      localStorage.setItem("adminName", actorName);
+
+      const res = await fetch(`${API_BASE}/api/login`, {
         method: "POST",
-        headers: {"Content-Type":"application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         token = json.token;
-        localStorage.setItem("admintoken", token);
         showDash();
-        $("#btnLoad").click();
+        loadApplications();   // ladda ansökningar direkt
       } else {
         alert(json.error || "Fel inloggning.");
       }
     });
+
 
     // Logout
     $("#btnLogout").addEventListener("click", () => {
@@ -405,14 +528,18 @@ showLogin();
     });
 
     // Ladda data
-    $("#btnLoad").addEventListener("click", async () => {
-      if (!token) { alert("Du måste logga in."); return; }
-      const res = await fetch("/api/applications", {
-        headers: { "Authorization": "Bearer " + token }
-      });
-      allRows = await res.json();
-      render();
-    });
+async function loadApplications() {
+  if (!token) {
+    alert("Du måste logga in.");
+    return;
+  }
+  const res = await fetch(`${API_BASE}/api/applications`, {
+    headers: { "Authorization": "Bearer " + token }
+  });
+  allRows = await res.json();
+  render();
+}
+
 
     // Filter & sort
     $("#search").addEventListener("input", render);
@@ -469,13 +596,17 @@ showLogin();
       const status = String(el.value).trim();
       if (!Number.isInteger(id) || id <= 0) return alert("Ogiltigt ID.");
       if (!token) return alert("Du måste logga in.");
-      async function send(method) {
-        return fetch(`/api/applications/${id}/status`, {
+           async function send(method) {
+        return fetch(`${API_BASE}/api/applications/${id}/status`, {
           method,
-          headers: {"Content-Type": "application/json","Authorization": "Bearer " + token},
-          body: JSON.stringify({ status })
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ status, actor: actorName })
         });
       }
+
       try {
         let res = await send("PATCH");
         if (!res.ok) res = await send("POST");
@@ -587,10 +718,16 @@ showLogin();
       if (!id) return;
       if (!token) { alert("Du måste logga in."); return; }
       try {
-        const res = await fetch(`/api/applications/${id}`, {
-          method: "DELETE",
-          headers: { "Authorization": "Bearer " + token }
-        });
+      const res = await fetch(`${API_BASE}/api/applications/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ actor: actorName })
+      });
+
+
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
           alert(json.error || "Kunde inte radera ansökan.");
@@ -607,7 +744,73 @@ showLogin();
       }
     });
 
+    // Öppna loggmodalen
+// Öppna loggmodalen – robust + visar "inga loggar" vid tomt resultat
+async function openLogs() {
+  if (!token) {
+    alert("Du måste logga in.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/admin-logs`, {
+      headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("Fel vid hämtning av loggar:", res.status, text);
+      alert("Kunde inte hämta loggar från servern.");
+      return;
+    }
+
+    const rows = await res.json().catch((err) => {
+      console.error("Kunde inte tolka logg-svar som JSON:", err);
+      return [];
+    });
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      els.logsTable.innerHTML = `
+        <tr>
+          <td colspan="6">Inga loggar hittades ännu.</td>
+        </tr>
+      `;
+    } else {
+      els.logsTable.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.id}</td>
+          <td>${r.created_at}</td>
+          <td>${r.actor || "-"}</td>
+          <td>${r.action}</td>
+          <td>${r.application_id || "-"}</td>
+          <td>${r.details ? JSON.stringify(r.details) : "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    els.logsBackdrop.classList.add("show");
+  } catch (err) {
+    console.error("Nätverksfel vid hämtning av loggar:", err);
+    alert("Nätverksfel – kunde inte hämta loggar.");
+  }
+}
+
+
+// Stäng loggmodal
+function closeLogs() {
+  els.logsBackdrop.classList.remove("show");
+}
+
+// Event listeners
+els.btnLogs.addEventListener("click", openLogs);
+els.logsClose.addEventListener("click", closeLogs);
+els.logsBackdrop.addEventListener("click", (e) => {
+  if (e.target === els.logsBackdrop) closeLogs();
+});
+
+
   })(); // end IIFE
 </script>
+
 </body>
 </html>

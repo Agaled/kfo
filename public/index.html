@@ -8,10 +8,29 @@
 </head>
 <body>
 <div class="container">
+
+    <!-- Success Popup Modal -->
+    <!-- Success Popup Modal -->
+    <div id="successOverlay" class="success-overlay">
+        <div class="success-modal">
+            <h2>Tack!</h2>
+            <p>
+                Vi har tagit emot din ansökan och kommer att kontakta dig via e-post
+                så snart vi gått igenom den.
+            </p>
+            <button id="successCloseBtn" type="button" class="btn success-close-btn">
+                Stäng
+            </button>
+        </div>
+    </div>
+
+
+
+
     <h1>Ansök om medlemskap</h1>
 
     <div class="admin-cta">
-        <a class="btn btn-outline" href="http://localhost:3000/admin.html">Adminportal</a>
+        <a class="btn btn-outline" href="admin.html">Adminportal</a>
         <!-- Vill du öppna i ny flik? Lägg till: target="_blank" rel="noopener" -->
     </div>
 
@@ -61,8 +80,22 @@
 
 </div>
 
+
+
 <script>
+    const API_BASE = "https://kfo-1.onrender.com";
+
     const form = document.getElementById("applyForm");
+    const overlay = document.getElementById("successOverlay");
+    const closeBtn = document.getElementById("successCloseBtn");
+
+    // Stäng popupen när man klickar på "Stäng"
+    if (closeBtn && overlay) {
+      closeBtn.addEventListener("click", () => {
+        overlay.style.display = "none";
+      });
+    }
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const data = {
@@ -77,15 +110,20 @@
       };
 
       try {
-        const res = await fetch("/api/apply", {
+        const res = await fetch(`${API_BASE}/api/apply`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
         const json = await res.json();
+
         if (res.ok) {
-          alert("Tack! Din ansökan är inskickad. (ID: " + json.id + ")");
           form.reset();
+          // Visa popupen
+          if (overlay) {
+            overlay.style.display = "flex";
+          }
+          console.log("Ansökan inskickad, ID:", json.id);
         } else {
           alert(json.error || "Något gick fel.");
         }
@@ -95,6 +133,10 @@
       }
     });
 </script>
+
+
+
+
 
 
 </body>

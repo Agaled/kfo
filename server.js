@@ -6,7 +6,8 @@ const bodyParser = require("body-parser");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 
-const db = require("./db");         // SQLite-koppling (config/db.js)
+// Hämta både db-objektet och logAdminAction från db.js
+const { db, logAdminAction } = require("./db");
 
 const app = express();
 const PORT = 3000; // kör lokalt på port 3000
@@ -95,8 +96,9 @@ app.get("/api/applications", auth, (req, res) => {
 app.patch("/api/applications/:id/status", auth, (req, res) => {
   const idNum = Number(req.params.id);
   const status = String((req.body?.status ?? "")).trim();
+  const actor = (req.body?.actor || "").trim() || "okänd admin";
 
-  console.log("[PATCH] /api/applications/%s/status -> %s", idNum, status);
+  console.log("[PATCH] /api/applications/%s/status -> %s (actor: %s)", idNum, status, actor);
 
   if (!Number.isInteger(idNum) || idNum <= 0) {
     return res.status(400).json({ error: "Ogiltigt id." });
@@ -116,6 +118,15 @@ app.patch("/api/applications/:id/status", auth, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: "Hittade ingen ansökan med det ID:t." });
     }
+
+    // Logga statusändringen
+    logAdminAction({
+      actor,
+      action: "update_status",
+      applicationId: idNum,
+      details: { newStatus: status }
+    });
+
     res.json({ ok: true, id: idNum, status });
   });
 });
@@ -123,6 +134,8 @@ app.patch("/api/applications/:id/status", auth, (req, res) => {
 // ====== ADMIN: radera ansökan (skyddad) ======
 app.delete("/api/applications/:id", auth, (req, res) => {
   const idNum = Number(req.params.id);
+  const actor = (req.body?.actor || "").trim() || "okänd admin";
+
   if (!Number.isInteger(idNum) || idNum <= 0) {
     return res.status(400).json({ error: "Ogiltigt id." });
   }
@@ -136,10 +149,75 @@ app.delete("/api/applications/:id", auth, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: "Hittade ingen ansökan med det ID:t." });
     }
+
+    // Logga raderingen
+    logAdminAction({
+      actor,
+      action: "delete_application",
+      applicationId: idNum
+    });
+
     res.json({ ok: true, id: idNum });
   });
 });
 
+// ====== ADMIN: hämta loggar (skyddad) ======
+app.get("/api/admin-logs", auth, (req, res) => {
+  const sql = `
+    SELECT id, created_at, actor, action, application_id, details
+    FROM admin_logs
+    ORDER BY id DESC
+    LIMIT 200
+  `;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error("Loggfel:", err.message);
+
+      // Om tabellen inte finns: skapa den och returnera tom lista istället för 500-fel
+      if (err.message && err.message.includes("no such table")) {
+        db.run(`
+          CREATE TABLE IF NOT EXISTS admin_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            actor TEXT,
+            action TEXT NOT NULL,
+            application_id INTEGER,
+            details TEXT
+          )
+        `, (e2) => {
+          if (e2) {
+            console.error("Kunde inte skapa admin_logs:", e2);
+            return res.status(500).json({ error: "Kunde inte skapa logg-tabell." });
+          }
+          // Ny tabell -> inga loggar ännu
+          return res.json([]);
+        });
+        return;
+      }
+
+      // Annat fel
+      return res.status(500).json({ error: "Kunde inte hämta loggar." });
+    }
+
+    if (!rows || rows.length === 0) {
+      return res.json([]);
+    }
+
+    // Försök parsa JSON i details
+    rows.forEach((r) => {
+      if (r.details) {
+        try {
+          r.details = JSON.parse(r.details);
+        } catch {
+          // lämna som text om det inte gick
+        }
+      }
+    });
+
+    res.json(rows);
+  });
+});
 
 // --- Starta servern ---
 app.listen(PORT, () => {
