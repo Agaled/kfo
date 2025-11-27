@@ -10,7 +10,6 @@
 <div class="container">
 
     <!-- Success Popup Modal -->
-    <!-- Success Popup Modal -->
     <div id="successOverlay" class="success-overlay">
         <div class="success-modal">
             <h2>Tack!</h2>
@@ -24,16 +23,12 @@
         </div>
     </div>
 
-
-
-
     <h1>Ansök om medlemskap</h1>
 
     <div class="admin-cta">
         <a class="btn btn-outline" href="admin.html">Adminportal</a>
         <!-- Vill du öppna i ny flik? Lägg till: target="_blank" rel="noopener" -->
     </div>
-
 
     <p>Fyll i formuläret nedan för att ansöka om medlemskap i klubben.</p>
 
@@ -51,17 +46,31 @@
         <input type="text" id="address" name="address">
 
         <label for="swimming">Är du simkunnig? *</label>
+        <small>
+            Enligt svenska riktlinjer anses man simkunnig om man kan simma minst
+            <strong>200–250 meter</strong> i följd utan flythjälp.
+        </small>
         <select id="swimming" name="swimming" required>
             <option value="">Välj...</option>
             <option value="Ja">Ja</option>
             <option value="Nej">Nej</option>
         </select>
 
+
         <label for="experience">Kajakerfarenhet *</label>
+        <small>
+            Osäker på vad du ska välja? Läs mer om nivåer och säkerhetskrav i
+            <a href="https://kforesund.se/wp-content/uploads/2025/07/KFO_Handbok_3_5.pdf"
+               target="_blank" rel="noopener">
+                KFO:s handbok (avsnitt 3.5)
+            </a>.
+        </small>
         <select id="experience" name="experience" required>
             <option value="">Välj...</option>
             <option value="Grundkurs i havskajak">Grundkurs i havskajak</option>
-            <option value="Annat motsvarande">Annat motsvarande</option>
+            <option value="Annat (motsvarande kurs/erfarenhet – ange under Övrigt)">
+                Annat (motsvarande kurs/erfarenhet – ange under "Övrigt")
+            </option>
             <option value="Ingen">Ingen</option>
         </select>
 
@@ -73,14 +82,13 @@
         </select>
 
         <label for="message">Övrigt</label>
-        <textarea id="message" name="message"></textarea>
+        <textarea id="message" name="message"
+                  placeholder='Till exempel om du valt "Annat" ovan – beskriv kort din utbildning/erfarenhet.'></textarea>
 
         <button type="submit">Skicka ansökan</button>
     </form>
 
 </div>
-
-
 
 <script>
     const API_BASE = "https://kfo-1.onrender.com";
@@ -133,11 +141,6 @@
       }
     });
 </script>
-
-
-
-
-
 
 </body>
 </html>

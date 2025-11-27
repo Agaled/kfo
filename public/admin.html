@@ -319,6 +319,20 @@
     // ===== State =====
     const API_BASE = "https://kfo-1.onrender.com";
 
+        // Hjälpfunktion: konvertera UTC-tid (från databasen) till lokal svensk tid
+    function formatDateTime(value) {
+      if (!value) return "";
+      // Databasen ger t.ex. "2025-11-24 12:35:30" (UTC)
+      // Gör om till ISO + "Z" (UTC-markering) så Date tolkar rätt
+      const iso = value.replace(" ", "T") + "Z";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return value; // om något strular, visa originalet
+      return d.toLocaleString("sv-SE", {
+        dateStyle: "short",
+        timeStyle: "medium"
+      });
+    }
+
     let token = null;
     let allRows = [];
     let sortKey = "created_at";
@@ -387,11 +401,17 @@ function showDash() {
     function esc(s) {
       return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     }
-    function fmtDate(iso) {
-      const d = new Date(iso);
-      if (isNaN(d)) return esc(iso);
-      return d.toLocaleString("sv-SE");
-    }
+function fmtDate(value) {
+  if (!value) return "";
+  const iso = value.replace(" ", "T") + "Z";  // ← gör tiden till korrekt UTC
+  const d = new Date(iso);
+  if (isNaN(d)) return value;
+  return d.toLocaleString("sv-SE", {
+    dateStyle: "short",
+    timeStyle: "medium"
+  });
+}
+
     function compare(a, b, key) {
       const va = a[key], vb = b[key];
       if (key === "id") return Number(va) - Number(vb);
@@ -817,7 +837,7 @@ async function openLogs() {
       els.logsTable.innerHTML = rows.map(r => `
         <tr>
           <td>${r.id}</td>
-          <td>${r.created_at}</td>
+          <td>${fmtDate(r.created_at)}</td>
           <td>${r.actor || "-"}</td>
           <td>${r.action}</td>
           <td>${r.application_id || "-"}</td>
